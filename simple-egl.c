@@ -7,6 +7,8 @@
 #include <wayland-egl.h>
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
+#include "platform.h"
+#include "weston-egl-ext.h"
 
 struct wl_display *display = NULL;
 struct wl_compositor *compositor = NULL;
@@ -93,7 +95,8 @@ static void init_egl() {
 		EGL_NONE
 	};
 
-	egl_display = eglGetDisplay((EGLNativeDisplayType) display);
+	//egl_display = eglGetDisplay((EGLNativeDisplayType) display);
+	egl_display = weston_platform_get_egl_display(EGL_PLATFORM_WAYLAND_KHR, display, NULL);
 	if (egl_display == EGL_NO_DISPLAY) {
 		fprintf(stderr, "Can't create egl display\n");
 		exit(1);
