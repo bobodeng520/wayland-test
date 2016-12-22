@@ -29,7 +29,7 @@ uint32_t id, const char *interface, uint32_t version)
 	printf("Got a registry event for %s id %d\n", interface, id);
 	if (strcmp(interface, "wl_compositor") == 0) {
 		compositor = wl_registry_bind(registry, id, &wl_compositor_interface, 1);
-	} else if (strcmp(interface, "shell") == 0) {
+	} else if (strcmp(interface, "wl_shell") == 0) {
 		shell = wl_registry_bind(registry, id, &wl_shell_interface, 1);
 	}
 }
@@ -65,16 +65,12 @@ static void get_server_reference(void)
 	wl_display_roundtrip(display);
 
 	// hasn't found where to initialize compositor and shell
-	/*
 	if (compositor == NULL || shell == NULL) {
 		fprintf(stderr, "Can't find compositor or shell\n");
 		exit(1);
 	} else {
 		fprintf(stderr, "Found compositor and shell\n");
 	}
-	*/
-
-
 }
 
 static void init_egl() {
@@ -129,6 +125,38 @@ static void init_egl() {
 	egl_context = eglCreateContext(egl_display, egl_conf, EGL_NO_CONTEXT, context_attribs);
 }
 
+static void create_window()
+{
+	egl_window = wl_egl_window_create(surface, 480, 360);
+
+	if (egl_window == EGL_NO_SURFACE) {
+		fprintf(stderr, "Can't create egl window\n");
+		exit(1);
+	} else {
+		fprintf(stderr, "Create egl window\n");
+	}
+
+	egl_surface = eglCreateWindowSurface(egl_display, egl_conf, egl_window, NULL);
+
+	if (eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context)) {
+		fprintf(stderr, "Make current\n");
+	} else {
+		fprintf(stderr, "Make current failed\n");
+	}
+
+
+	glClearColor(1.0, 1.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT);
+	glFlush();
+
+
+	if (eglSwapBuffers(egl_display, egl_surface)) {
+		fprintf(stderr, "Swapped buffers\n");
+	} else {
+		fprintf(stderr, "Swapped buffers failed\n");
+	}
+}
+
 int main(int argc, char **argv)
 {
 	get_server_reference();
@@ -141,11 +169,19 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Create surface\n");
 	}
 
-	//shell_surface = wl_shell_get_shell_surface(shell, surface);
-	//wl_shell_surface_set_toplevel(shell_surface);
+	shell_surface = wl_shell_get_shell_surface(shell, surface);
+	wl_shell_surface_set_toplevel(shell_surface);
 
 	create_opaque_region();
 	init_egl();
-	
-	return 0;
+	create_window();
+
+	while (wl_display_dispatch(display) != -1) {
+		;
+	}
+
+	wl_display_disconnect(display);
+	printf("disconnected from display\n");
+
+	exit(0);
 }

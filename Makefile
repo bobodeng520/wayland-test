@@ -4,7 +4,7 @@ FILE := a.out
 SIMPLE_EGL := simple-egl
 SIMPLE_EGL_O := simple-egl.o
 SIMPLE_EGL: simple-egl.o
-	$(CC) $(CFLAGS) -o simple-egl simple-egl.o -lEGL -lGLESv2 -lwayland-client
+	$(CC) $(CFLAGS) -o simple-egl simple-egl.o -lEGL -lGLESv2 -lwayland-client -lwayland-egl
 
 simple-egl.o: simple-egl.c
 	$(CC) $(CFLAGS) -DENABLE_EGL -c simple-egl.c
