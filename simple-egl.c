@@ -141,8 +141,8 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Create surface\n");
 	}
 
-	shell_surface = wl_shell_get_shell_surface(shell, surface);
-	wl_shell_surface_set_toplevel(shell_surface);
+	//shell_surface = wl_shell_get_shell_surface(shell, surface);
+	//wl_shell_surface_set_toplevel(shell_surface);
 
 	create_opaque_region();
 	init_egl();
