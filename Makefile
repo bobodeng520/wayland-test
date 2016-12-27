@@ -1,10 +1,18 @@
+CHIP:=rpi
 CC = gcc
 CFLAGS = -g -O0
 FILE := a.out
 SIMPLE_EGL := simple-egl
 SIMPLE_EGL_O := simple-egl.o
 SIMPLE_EGL: simple-egl.o
-	$(CC) $(CFLAGS) -o simple-egl simple-egl.o -lEGL -lGLESv2 -lwayland-client -lwayland-egl
+
+ifeq ("$(CHIP)", "rpi")
+	echo "CHIP is rpi"
+	$(CC) $(CFLAGS) -o simple-egl simple-egl.o -lGLESv2 -lEGL -lwayland-client -lwayland-egl
+else
+	echo "CHIP is other"
+	$(CC) $(CFLAGS) -o simple-egl simple-egl.o /root/workstation/wayland/install/lib/libwayland-client.so /root/workstation/wayland/install/lib/libMali.so
+endif
 
 simple-egl.o: simple-egl.c
 	$(CC) $(CFLAGS) -DENABLE_EGL -c simple-egl.c
