@@ -1,4 +1,4 @@
-CHIP:=rpi #v40 use the real lib path
+CHIP:=rpi#v40 use the real lib path
 CC = gcc
 CFLAGS = -g -O0
 BUILD_FLAGS := -DENABLE_EGL
