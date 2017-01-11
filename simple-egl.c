@@ -23,6 +23,22 @@ EGLConfig egl_conf;
 EGLSurface egl_surface;
 EGLContext egl_context;
 
+static const char *vert_shader_text =
+	"uniform mat4 rotation;\n"
+	"attribute vec4 pos;\n"
+	"attribute vec4 color;\n"
+	"varying vec4 v_color;\n"
+	"void main() {\n"
+	"	gl_Position = pos;\n"
+	"}\n";
+
+static const char *frag_shader_text =
+	"precision mediump float;\n"
+	"varying vec4 v_color;\n"
+	"void main() {\n"
+	"	gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
+	"}\n";
+
 static void global_registry_handler(void *data, struct wl_registry *registry, 
 uint32_t id, const char *interface, uint32_t version)
 {
@@ -127,7 +143,7 @@ static void init_egl() {
 
 static void create_window()
 {
-	egl_window = wl_egl_window_create(surface, 480, 360);
+	egl_window = wl_egl_window_create(surface, 400, 400);
 
 	if (egl_window == EGL_NO_SURFACE) {
 		fprintf(stderr, "Can't create egl window\n");
@@ -144,10 +160,10 @@ static void create_window()
 		fprintf(stderr, "Make current failed\n");
 	}
 
-
+	/*
 	glClearColor(1.0, 1.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT);
-	glFlush();
+	glFlush();*/
 
 
 	if (eglSwapBuffers(egl_display, egl_surface)) {
@@ -155,6 +171,87 @@ static void create_window()
 	} else {
 		fprintf(stderr, "Swapped buffers failed\n");
 	}
+}
+
+
+static GLuint create_shader(const char *source, GLenum shader_type)
+{
+	GLuint shader;
+	GLint status;
+
+	shader = glCreateShader(shader_type);
+
+	glShaderSource(shader, 1, (const char **) &source, NULL);
+	glCompileShader(shader);
+
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+	if (!status) {
+		char log[1000];
+		GLsizei len;
+		glGetShaderInfoLog(shader, 1000, &len, log);
+		fprintf(stderr, "Error: compiling %s: %*s\n",
+			shader_type == GL_VERTEX_SHADER ? "vertex" : "fragment",
+			len, log);
+		exit(1);
+	}
+
+	return shader;
+}
+
+static void init_gl()
+{
+	GLuint frag, vert;
+	GLuint program;
+	GLint status;
+
+	frag = create_shader(frag_shader_text, GL_FRAGMENT_SHADER);
+	vert = create_shader(vert_shader_text, GL_VERTEX_SHADER);
+
+	program = glCreateProgram();
+	glAttachShader(program, frag);
+	glAttachShader(program, vert);
+	glLinkProgram(program);
+
+	glGetProgramiv(program, GL_LINK_STATUS, &status);
+	if (!status) {
+		char log[1000];
+		GLsizei len;
+		glGetProgramInfoLog(program, 1000, &len, log);
+		fprintf(stderr, "Error: linking:\n%*s\n", len, log);
+	}
+
+	glUseProgram(program);
+
+	// pos
+	glBindAttribLocation(program, 0, "pos");
+	glBindAttribLocation(program, 1, "color");
+
+	glLinkProgram(program);
+}
+
+static void redraw()
+{
+	static const GLfloat verts[3][2] = {
+		{ -0.5, -0.5 },
+		{  0.5, -0.5 },
+		{  0,    0.5 }
+	};
+
+	glViewport(0, 0, 400, 400);
+
+	glClearColor(0.0, 0.0, 0.0, 0.5);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	// position
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, verts);
+	glEnableVertexAttribArray(0);
+
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+
+	// disable position
+	glDisableVertexAttribArray(0);
+
+	eglSwapBuffers(egl_display, egl_surface);
 }
 
 int main(int argc, char **argv)
@@ -175,9 +272,10 @@ int main(int argc, char **argv)
 	create_opaque_region();
 	init_egl();
 	create_window();
+	init_gl();
 
 	while (wl_display_dispatch(display) != -1) {
-		;
+		redraw();
 	}
 
 	wl_display_disconnect(display);
