@@ -1,34 +1,28 @@
-CHIP:=rpi
+CHIP:=rpi #v40 use the real lib path
 CC = gcc
 CFLAGS = -g -O0
-FILE := a.out
-SIMPLE_EGL := simple-egl
-SIMPLE_EGL_O := simple-egl.o
-SIMPLE_EGL_C := simple-egl.c
-
-
-$(SIMPLE_EGL): $(SIMPLE_EGL_O)
+BUILD_FLAGS := -DENABLE_EGL
 
 ifeq ("$(CHIP)", "rpi")
-	echo "CHIP is rpi"
-	$(CC) $(CFLAGS) -o $(SIMPLE_EGL) $(SIMPLE_EGL_O) -lGLESv2 -lEGL -lwayland-client -lwayland-egl
+GLESV2_LIB := -lGLESv2
+EGL_LIB := -lEGL
+WAYLAND_CLIENT_LIB := -lwayland-client
+WAYLAND_EGL_LIB := -lwayland-egl
 else
-	echo "CHIP is other"
-	$(CC) $(CFLAGS) -o $(SIMPLE_EGL) $(SIMPLE_EGL_O) /root/workstation/wayland/install/lib/libwayland-client.so /root/workstation/wayland/install/lib/libMali.so
+GLESV2_LIB := /root/workstation/wayland/install/lib/libMali.so
+EGL_LIB := /root/workstation/wayland/install/lib/libMali.so
+WAYLAND_CLIENT_LIB := /root/workstation/wayland/install/lib/libwayland-client.so
+WAYLAND_EGL_LIB := /root/workstation/wayland/install/lib/libMali.so
 endif
 
-$(SIMPLE_EGL_O): $(SIMPLE_EGL_C)
-	$(CC) $(CFLAGS) -DENABLE_EGL -c $(SIMPLE_EGL_C)
+
+SRCS = $(wildcard *.c)
+BINS = $(patsubst %.c, %, $(SRCS))
+
+.c:
+	$(CC) $(CFLAGS) $(BUILD_FLAGS) -o $@ $< $(GLESV2_LIB) $(EGL_LIB) $(WAYLAND_CLIENT_LIB) $(WAYLAND_EGL_LIB)
+
+all: $(BINS)
 
 clean:
-ifeq ($(FILE), $(wildcard $(FILE)))
-	rm $(FILE)
-endif
-
-ifeq ($(SIMPLE_EGL), $(wildcard $(SIMPLE_EGL)))
-	rm $(SIMPLE_EGL)
-endif
-
-ifeq ($(SIMPLE_EGL_O), $(wildcard $(SIMPLE_EGL_O)))
-	rm $(SIMPLE_EGL_O)
-endif
+	rm -f $(BINS)
