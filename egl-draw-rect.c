@@ -26,14 +26,20 @@ EGLContext egl_context;
 GLuint rotation_uniform;
 GLuint pos;
 GLuint color;
+GLuint model_uniform;
+GLuint view_uniform;
+GLuint projection_uniform;
 
 static const char *vert_shader_text =
-	"uniform mat4 rotation;\n"
-	"attribute vec4 pos;\n"
+	"uniform mat4 model;\n"
+	"uniform mat4 view;\n"
+	"uniform mat4 projection;\n"
+	"attribute vec3 pos;\n"
 	"attribute vec4 color;\n"
 	"varying vec4 v_color;\n"
 	"void main() {\n"
-	"	gl_Position =rotation * pos;\n"
+	"	vec4 position = vec4(pos.xyz, 1.0);\n"
+	"	gl_Position = projection * view * model * position;\n"
 	"}\n";
 
 static const char *frag_shader_text =
@@ -66,7 +72,7 @@ static const struct wl_registry_listener registry_listener = {
 
 static void create_opaque_region() {
 	region = wl_compositor_create_region(compositor);
-	wl_region_add(region, 0, 0, 480, 360);
+	wl_region_add(region, 0, 0, 480, 400);
 	wl_surface_set_opaque_region(surface, region);
 }
 
@@ -235,36 +241,91 @@ static void init_gl()
 	glLinkProgram(program);
 
 	rotation_uniform = glGetUniformLocation(program, "rotation");
+	model_uniform = glGetUniformLocation(program, "model");
+	view_uniform = glGetUniformLocation(program, "view");
+	projection_uniform = glGetUniformLocation(program, "projection");
 }
 
 static void redraw()
 {
-	static const GLfloat verts[3][2] = {
-		{ -0.5, -0.5 },
-		{  0.5, -0.5 },
-		{ -0.5,  0.5 }
+	static const GLfloat verts[6][3] = {
+		{  0.0,  0.5,  1.0 },
+		{  0.5,  0.5,  0.5 },
+		{  0.5,  0.0,  0.5 },
+		{  0.0,  0.5,  1.0 },
+		{  0.5,  0.0,  0.5 },
+		{  0.0,  0.0,  1.0 },
 	};
 	GLfloat rotation[4][4] = {
-		{ 1, 0, 0, 0 },
-		{ 0, 1, 0, 0 },
-		{ 0, 0, 1, 0 },
-		{ 0, 0, 0, 1 }
+		{  1.00,  0.00,  0.00,  0.00 },
+		{  0.00,  1.00,  0.00,  0.00 },
+		{  0.00,  0.00,  1.00,  0.00 },
+		{  0.00,  0.00,  0.00,  1.00 }
+	};
+	GLfloat model[4][4] = {
+		{  1.00,  0.00,  0.00,  0.00 },
+		{  0.00,  1.00,  0.00,  0.00 },
+		{  0.00,  0.00,  1.00,  0.00 },
+		{  0.00, -1.00,  0.00,  1.00 }
+	};
+	GLfloat model1[4][4] = {
+		{  1.00,  0.00,  0.00,  0.00 },
+		{  0.00,  1.00,  0.00,  0.00 },
+		{  0.00,  0.00,  1.00,  0.00 },
+		{  0.00,  0.00,  0.00,  1.00 }
+	};
+	GLfloat view[4][4] = {
+		{  1.00,  0.00,  0.00,  0.00 },
+		{  0.00,  1.00,  0.00,  0.00 },
+		{  0.00,  0.00,  1.00,  0.00 },
+		{  0.00,  0.00,  0.00,  1.00 }
+	};
+	GLfloat view1[4][4] = {
+		{  1.00,  0.00,  0.00,  0.00 },
+		{  0.00,  1.00,  0.00,  0.00 },
+		{  0.00,  0.00,  1.00,  0.00 },
+		{  0.00,  0.00,  0.00,  1.00 }
+	};
+	GLfloat projection[4][4] = {
+		{  1.00,  0.00,  0.00,  0.00 },
+		{  0.00,  1.00,  0.00,  0.00 },
+		{  0.00,  0.00,  1.00,  0.00 },
+		{  0.00,  0.00,  0.00,  1.00 }
+	};
+	GLfloat projection1[4][4] = {
+		{  1.00,  0.00,  0.00,  0.00 },
+		{  0.00,  1.00,  0.00,  0.00 },
+		{  0.00,  0.00, -3.00,  1.00 },
+		{  0.00,  0.00,  2.00,  0.00 }
 	};
 
 	glViewport(0, 0, 400, 400);
 
 	glUniformMatrix4fv(rotation_uniform, 1, GL_FALSE,
 		(GLfloat *)rotation);
+	glUniformMatrix4fv(model_uniform, 1, GL_FALSE,
+		(GLfloat *)model);
+	glUniformMatrix4fv(view_uniform, 1, GL_FALSE,
+		(GLfloat *)view);
+	glUniformMatrix4fv(projection_uniform, 1, GL_FALSE,
+		(GLfloat *)projection);
 
-	glClearColor(0.0, 0.0, 0.0, 0.5);
+	glClearColor(0.0, 1.0, 0.0, 0.5);
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	// position
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, verts);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_TRUE, 0, verts);
 	glEnableVertexAttribArray(0);
 
 
-	glDrawArrays(GL_TRIANGLES, 0, 3);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glUniformMatrix4fv(model_uniform, 1, GL_FALSE,
+		(GLfloat *)model1);
+	glUniformMatrix4fv(view_uniform, 1, GL_FALSE,
+		(GLfloat *)view1);
+	glUniformMatrix4fv(projection_uniform, 1, GL_FALSE,
+		(GLfloat *)projection1);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	// disable position
 	glDisableVertexAttribArray(0);
