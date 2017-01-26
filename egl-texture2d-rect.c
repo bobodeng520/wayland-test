@@ -47,9 +47,12 @@ static const char *vert_shader_text =
 	"attribute vec4 vPosition;\n"
 	"attribute vec4 aTexCoords;\n"
 	"varying vec2 vTexCoords;\n"
+	"uniform mat4 model;\n"
+	"uniform mat4 view;\n"
+	"uniform mat4 projection;\n"
 	"void main() {\n"
 	"	vTexCoords = aTexCoords.xy;\n"
-	"	gl_Position = vPosition;\n"
+	"	gl_Position = projection * view * model * vPosition;\n"
 	"}\n";
 
 static const char *frag_shader_text =
@@ -301,6 +304,10 @@ static void init_gl()
 	guTexSamplerHandle = glGetUniformLocation(program, "uTexSampler");
 	checkGLError("glGetUniformLocation");
 	fprintf(stderr, "glGetAttribLocation guTexSamplerHandle = %d\n", guTexSamplerHandle);
+
+	model_uniform = glGetUniformLocation(program, "model")
+	view_uniform = glGetUniformLocation(program, "view")
+	projection_uniform = glGetUniformLocation(program, "projection")
 	
 	glViewport(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 	checkGLError("glViewport");
@@ -322,6 +329,32 @@ static void redraw()
 		0.5f, 0.7f,
 		0.5f, 0.2f,
 	};
+
+	GLfloat model[4][4] = {
+		{ 1.00, 0.00, 0.00, 0.00 },
+		{ 0.00, 1.00, 0.00, 0.00 },
+		{ 0.00, 0.00, 1.00, 0.00 },
+		{ 0.50, 0.00, 0.00, 1.00 }
+	};
+	GLfloat view[4][4] = {
+		{ 1.00, 0.00, 0.00, 0.00 },
+		{ 0.00, 1.00, 0.00, 0.00 },
+		{ 0.00, 0.00, 1.00, 0.00 },
+		{ 0.00, 0.00, 0.00, 1.00 }
+	};
+	GLfloat projection[4][4] = {
+		{ 1.00, 0.00, 0.00, 0.00 },
+		{ 0.00, 1.00, 0.00, 0.00 },
+		{ 0.00, 0.00, 1.00, 0.00 },
+		{ 0.00, 0.00, 0.00, 1.00 }
+	};
+
+	glUniformMatrix4fv(model_uniform, 1, GL_FALSE,
+		(GLfloat *)model);
+	glUniformMatrix4fv(view_uniform, 1, GL_FALSE,
+		(GLfloat *)view);
+	glUniformMatrix4fv(projection_uniform, 1, GL_FALSE,
+		(GLfloat *)projection);
 
 	glClearColor(0.0, 0.0, 1.0, 1.0);
 	checkGLError("glClearColor");
