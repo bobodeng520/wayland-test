@@ -310,10 +310,10 @@ static void init_gl()
 static void redraw()
 {
 	const GLfloat gTriangleVertices[] = {
-		-1.0f, 1.0f,
-		-1.0f, -1.0f,
-		1.0f, -1.0f,
-		1.0f, 1.0f,
+		0.0f, 0.5f, 1.0f,
+		0.5f, 0.5f, 0.5f,
+		0.5f, 0.0f, 0.5f,
+		0.0f, 0.0f, 1.0f,
 	};
 
 	const GLfloat gTexCoords[] = {
@@ -330,7 +330,7 @@ static void redraw()
 
 	glUseProgram(program);
 
-	glVertexAttribPointer(gvPositionHandle, 2, GL_FLOAT, GL_FALSE, 0, gTriangleVertices);
+	glVertexAttribPointer(gvPositionHandle, 3, GL_FLOAT, GL_FALSE, 0, gTriangleVertices);
 	glEnableVertexAttribArray(gvPositionHandle);
 
 	glVertexAttribPointer(gvTexCoordHandle, 2, GL_FLOAT, GL_FALSE, 0, gTexCoords);
