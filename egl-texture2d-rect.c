@@ -305,9 +305,9 @@ static void init_gl()
 	checkGLError("glGetUniformLocation");
 	fprintf(stderr, "glGetAttribLocation guTexSamplerHandle = %d\n", guTexSamplerHandle);
 
-	model_uniform = glGetUniformLocation(program, "model")
-	view_uniform = glGetUniformLocation(program, "view")
-	projection_uniform = glGetUniformLocation(program, "projection")
+	model_uniform = glGetUniformLocation(program, "model");
+	view_uniform = glGetUniformLocation(program, "view");
+	projection_uniform = glGetUniformLocation(program, "projection");
 	
 	glViewport(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 	checkGLError("glViewport");
