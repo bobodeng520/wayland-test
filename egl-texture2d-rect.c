@@ -10,6 +10,13 @@
 #include "platform.h"
 #include "weston-egl-ext.h"
 
+#define WIDTH 200
+#define HEIGHT 200
+#define VIEWPORT_WIDTH 800
+#define VIEWPORT_HEIGHT 800
+
+//#define USE_PICTURE 0
+
 struct wl_display *display = NULL;
 struct wl_compositor *compositor = NULL;
 struct wl_surface *surface;
@@ -30,23 +37,27 @@ GLuint model_uniform;
 GLuint view_uniform;
 GLuint projection_uniform;
 
+GLint gvPositionHandle;
+GLint gvTexCoordHandle;
+GLint guTexSamplerHandle;
+static GLuint TexName;
+GLuint program;
+
 static const char *vert_shader_text =
-	"uniform mat4 model;\n"
-	"uniform mat4 view;\n"
-	"uniform mat4 projection;\n"
-	"attribute vec3 pos;\n"
-	"attribute vec4 color;\n"
-	"varying vec4 v_color;\n"
+	"attribute vec4 vPosition;\n"
+	"attribute vec4 aTexCoords;\n"
+	"varying vec2 vTexCoords;\n"
 	"void main() {\n"
-	"	vec4 position = vec4(pos.xyz, 1.0);\n"
-	"	gl_Position = projection * view * model * position;\n"
+	"	vTexCoords = aTexCoords.xy;\n"
+	"	gl_Position = vPosition;\n"
 	"}\n";
 
 static const char *frag_shader_text =
 	"precision mediump float;\n"
-	"varying vec4 v_color;\n"
+	"uniform sampler2D uTexSampler;\n"
+	"varying vec2 vTexCoords;\n"
 	"void main() {\n"
-	"	gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
+	"	gl_FragColor = texture2D(uTexSampler, vTexCoords);\n"
 	"}\n";
 
 static checkGLError(const char *op) {
@@ -80,7 +91,7 @@ static const struct wl_registry_listener registry_listener = {
 
 static void create_opaque_region() {
 	region = wl_compositor_create_region(compositor);
-	wl_region_add(region, 0, 0, 480, 400);
+	wl_region_add(region, 0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 	wl_surface_set_opaque_region(surface, region);
 }
 
@@ -161,7 +172,7 @@ static void init_egl() {
 
 static void create_window()
 {
-	egl_window = wl_egl_window_create(surface, 400, 400);
+	egl_window = wl_egl_window_create(surface, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 
 	if (egl_window == EGL_NO_SURFACE) {
 		fprintf(stderr, "Can't create egl window\n");
@@ -177,13 +188,7 @@ static void create_window()
 	} else {
 		fprintf(stderr, "Make current failed\n");
 	}
-
-	/*
-	glClearColor(1.0, 1.0, 0.0, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT);
-	glFlush();*/
-
-
+	
 	if (eglSwapBuffers(egl_display, egl_surface)) {
 		fprintf(stderr, "Swapped buffers\n");
 	} else {
@@ -218,8 +223,56 @@ static GLuint create_shader(const char *source, GLenum shader_type)
 
 static void init_gl()
 {
+	char *buf = (char *)malloc(WIDTH*HEIGHT*4);
+
+#ifndef USE_PICTURE
+	int blockWidth = WIDTH/16;
+	int blockHeight = HEIGHT/16;
+	int x = 0, y = 0;
+	for (x = 0; x < WIDTH; x++) {
+		for (y = 0; y < HEIGHT; y++) {
+			int parityX = (x / blockWidth) & 1;
+			int parityY = (y / blockHeight) & 1;
+			unsigned char intensity = (parityX ^ parityY) ? 63 :191;
+			buf[((y * WIDTH) + x) * 4] = intensity;
+			buf[((y * WIDTH) + x) * 4 + 1] = 0x00;
+			buf[((y * WIDTH) + x) * 4 + 2] = 0x00;
+			buf[((y * WIDTH) + x) * 4 + 3] = 0xff;
+		}
+	}
+#else
+	int ret_size = 0;
+	FILE *fIn = NULL;
+	fIn = fopen("./pic_source/argb8888_bike.bin", "r");
+	if (fIn == NULL) {
+		fprintf(stderr, "Could not open bin file\n");
+	}
+	
+	ret_size = fread(buf, 1, WIDTH*HEIGHT*4, fIn);
+	if (ret_size <= 0) {
+		fprintf(stderr, "Could not open bin file\n");
+	}
+	fclose(fIn);
+#endif
+
+	glGenTextures(1, &TexName);
+	checkGLError("glGenTextures");
+	glBindTexture(GL_TEXTURE_2D, TexName);
+	checkGLError("glBindTexture");
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT,
+		0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
+	checkGLError("glTexImage2D");
+
+	free(buf);
+
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+
 	GLuint frag, vert;
-	GLuint program;
 	GLint status;
 
 	frag = create_shader(frag_shader_text, GL_FRAGMENT_SHADER);
@@ -238,106 +291,56 @@ static void init_gl()
 		fprintf(stderr, "Error: linking:\n%*s\n", len, log);
 	}
 
-	glUseProgram(program);
-
-	// pos
-	pos = 0;
-	color = 1;
-	glBindAttribLocation(program, pos, "pos");
-	glBindAttribLocation(program, color, "color");
-
-	glLinkProgram(program);
-
-	rotation_uniform = glGetUniformLocation(program, "rotation");
-	model_uniform = glGetUniformLocation(program, "model");
-	view_uniform = glGetUniformLocation(program, "view");
-	projection_uniform = glGetUniformLocation(program, "projection");
+	gvPositionHandle = glGetAttribLocation(program, "vPosition");
+	checkGLError("glGetAttribLocation");
+	fprintf(stderr, "glGetAttribLocation vPosition = %d\n", gvPositionHandle);
+	gvTexCoordHandle = glGetAttribLocation(program, "aTexCoords");
+	checkGLError("glGetAttribLocation");
+	fprintf(stderr, "glGetAttribLocation aTexCoords = %d\n", gvTexCoordHandle);
+	
+	guTexSamplerHandle = glGetUniformLocation(program, "uTexSampler");
+	checkGLError("glGetUniformLocation");
+	fprintf(stderr, "glGetAttribLocation guTexSamplerHandle = %d\n", guTexSamplerHandle);
+	
+	glViewport(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+	checkGLError("glViewport");
+	
 }
 
 static void redraw()
 {
-	static const GLfloat verts[6][3] = {
-		{  0.0,  0.5,  1.0 },
-		{  0.5,  0.5,  0.5 },
-		{  0.5,  0.0,  0.5 },
-		{  0.0,  0.5,  1.0 },
-		{  0.5,  0.0,  0.5 },
-		{  0.0,  0.0,  1.0 },
-	};
-	GLfloat rotation[4][4] = {
-		{  1.00,  0.00,  0.00,  0.00 },
-		{  0.00,  1.00,  0.00,  0.00 },
-		{  0.00,  0.00,  1.00,  0.00 },
-		{  0.00,  0.00,  0.00,  1.00 }
-	};
-	GLfloat model[4][4] = {
-		{  1.00,  0.00,  0.00,  0.00 },
-		{  0.00,  1.00,  0.00,  0.00 },
-		{  0.00,  0.00,  1.00,  0.00 },
-		{  0.00, -1.00,  0.00,  1.00 }
-	};
-	GLfloat model1[4][4] = {
-		{  1.00,  0.00,  0.00,  0.00 },
-		{  0.00,  1.00,  0.00,  0.00 },
-		{  0.00,  0.00,  1.00,  0.00 },
-		{  0.00,  0.00,  0.00,  1.00 }
-	};
-	GLfloat view[4][4] = {
-		{  1.00,  0.00,  0.00,  0.00 },
-		{  0.00,  1.00,  0.00,  0.00 },
-		{  0.00,  0.00,  1.00,  0.00 },
-		{  0.00,  0.00,  0.00,  1.00 }
-	};
-	GLfloat view1[4][4] = {
-		{  1.00,  0.00,  0.00,  0.00 },
-		{  0.00,  1.00,  0.00,  0.00 },
-		{  0.00,  0.00,  1.00,  0.00 },
-		{  0.00,  0.00,  0.00,  1.00 }
-	};
-	GLfloat projection[4][4] = {
-		{  1.00,  0.00,  0.00,  0.00 },
-		{  0.00,  1.00,  0.00,  0.00 },
-		{  0.00,  0.00,  1.00,  0.00 },
-		{  0.00,  0.00,  0.00,  1.00 }
-	};
-	GLfloat projection1[4][4] = {
-		{  1.00,  0.00,  0.00,  0.00 },
-		{  0.00,  1.00,  0.00,  0.00 },
-		{  0.00,  0.00, -3.00,  1.00 },
-		{  0.00,  0.00,  2.00,  0.00 }
+	const GLfloat gTriangleVertices[] = {
+		-1.0f, 1.0f,
+		-1.0f, -1.0f,
+		1.0f, -1.0f,
+		1.0f, 1.0f,
 	};
 
-	glViewport(0, 0, 400, 400);
-	checkGLError("glViewport");
+	const GLfloat gTexCoords[] = {
+		0.0f, 0.2f,
+		0.0f, 0.7f,
+		0.5f, 0.7f,
+		0.5f, 0.2f,
+	};
 
-	glUniformMatrix4fv(rotation_uniform, 1, GL_FALSE,
-		(GLfloat *)rotation);
-	glUniformMatrix4fv(model_uniform, 1, GL_FALSE,
-		(GLfloat *)model);
-	glUniformMatrix4fv(view_uniform, 1, GL_FALSE,
-		(GLfloat *)view);
-	glUniformMatrix4fv(projection_uniform, 1, GL_FALSE,
-		(GLfloat *)projection);
+	glClearColor(0.0, 0.0, 1.0, 1.0);
+	checkGLError("glClearColor");
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+	checkGLError("glClear");
 
-	glClearColor(0.0, 1.0, 0.0, 0.5);
-	glClear(GL_COLOR_BUFFER_BIT);
+	glUseProgram(program);
 
-	// position
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_TRUE, 0, verts);
-	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(gvPositionHandle, 2, GL_FLOAT, GL_FALSE, 0, gTriangleVertices);
+	glEnableVertexAttribArray(gvPositionHandle);
 
+	glVertexAttribPointer(gvTexCoordHandle, 2, GL_FLOAT, GL_FALSE, 0, gTexCoords);
+	glEnableVertexAttribArray(gvTexCoordHandle);
 
-	glDrawArrays(GL_TRIANGLES, 0, 6);
-	glUniformMatrix4fv(model_uniform, 1, GL_FALSE,
-		(GLfloat *)model1);
-	glUniformMatrix4fv(view_uniform, 1, GL_FALSE,
-		(GLfloat *)view1);
-	glUniformMatrix4fv(projection_uniform, 1, GL_FALSE,
-		(GLfloat *)projection1);
-	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glUniform1i(guTexSamplerHandle, 0);
 
-	// disable position
-	glDisableVertexAttribArray(0);
+	glBindTexture(GL_TEXTURE_2D, TexName);
+
+	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
 	eglSwapBuffers(egl_display, egl_surface);
 }
