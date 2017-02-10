@@ -40,9 +40,16 @@ GLuint projection_uniform;
 GLint gvPositionHandle;
 GLint gvTexCoordHandle;
 GLint guTexSamplerHandle;
-static GLuint TexName;
+GLint gvFboPositionHandle;
+GLint gvFboTexCoordsHandle;
+GLint gvFboSampleHandle;
+static GLuint TexNameInput;
+static GLuint TexNameOutput;
 GLuint program;
+GLuint fboPrograme;
+GLuint gFbo;
 
+// output to framebuffer shader, render texure to display
 static const char *vert_shader_text =
 	"attribute vec4 vPosition;\n"
 	"attribute vec4 aTexCoords;\n"
@@ -61,6 +68,24 @@ static const char *frag_shader_text =
 	"varying vec2 vTexCoords;\n"
 	"void main() {\n"
 	"	gl_FragColor = texture2D(uTexSampler, vTexCoords);\n"
+	"}\n";
+
+// FBO shader, use gpu copy texture to another texture to test FBO function
+static const char *vert_shader_fbo =
+	"attribute vec4 positions;\n"
+	"attribute vec2 texCoords;\n"
+	"varying vec2 outTexCoords;\n"
+	"void main() {\n"
+	"	outTexCoords = texCoords;\n"
+	"	gl_Position = positions;\n"
+	"}\n";
+
+static const char *frag_shader_fbo =
+	"precision mediump float;\n"
+	"varying vec2 outTexCoords;\n"
+	"uniform sampler2D texture;\n"
+	"void main() {\n"
+	"	gl_FragColor = texture2D(texture, outTexCoords);\n"
 	"}\n";
 
 static checkGLError(const char *op) {
@@ -258,9 +283,14 @@ static void init_gl()
 	fclose(fIn);
 #endif
 
-	glGenTextures(1, &TexName);
+	/*
+	* Create first texture for using gpu fbo rendering;
+	* FBO is offscreen, it will not show on screen
+	*/
+	glActiveTexture(GL_TEXTURE0);
+	glGenTextures(1, &TexNameInput);
 	checkGLError("glGenTextures");
-	glBindTexture(GL_TEXTURE_2D, TexName);
+	glBindTexture(GL_TEXTURE_2D, TexNameInput);
 	checkGLError("glBindTexture");
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT,
 		0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
@@ -274,7 +304,9 @@ static void init_gl()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-
+	/*
+	* Create first vert-frag shader pair to using gpu fbo rendering
+	*/
 	GLuint frag, vert;
 	GLint status;
 
@@ -300,7 +332,7 @@ static void init_gl()
 	gvTexCoordHandle = glGetAttribLocation(program, "aTexCoords");
 	checkGLError("glGetAttribLocation");
 	fprintf(stderr, "glGetAttribLocation aTexCoords = %d\n", gvTexCoordHandle);
-	
+
 	guTexSamplerHandle = glGetUniformLocation(program, "uTexSampler");
 	checkGLError("glGetUniformLocation");
 	fprintf(stderr, "glGetAttribLocation guTexSamplerHandle = %d\n", guTexSamplerHandle);
@@ -308,26 +340,87 @@ static void init_gl()
 	model_uniform = glGetUniformLocation(program, "model");
 	view_uniform = glGetUniformLocation(program, "view");
 	projection_uniform = glGetUniformLocation(program, "projection");
+
+	/*
+	* Create second vert-frag shader pair, to rendering first shader pair output to
+	* screen
+	*/
+	GLuint fboFrag, fboVert;
+	GLint fboStatus;
+
+	fboVert = create_shader(vert_shader_fbo, GL_VERTEX_SHADER);
+	fboFrag = create_shader(frag_shader_fbo, GL_FRAGMENT_SHADER);
+
+	fboPrograme = glCreateProgram();
+	glAttachShader(fboPrograme, fboVert);
+	checkGLError("glAttachShader");
+	glAttachShader(fboPrograme, fboFrag);
+	checkGLError("glAttachShader");
+	glLinkProgram(fboPrograme);
+	checkGLError("glLinkProgram");
+
+	gvFboPositionHandle = glGetAttribLocation(fboPrograme, "positions");
+	checkGLError("glGetAttribLocation");
+	fprintf(stderr, "glGetAttribLocation gvFboPositionHandle = %d\n", gvFboPositionHandle);
+	gvFboTexCoordsHandle = glGetAttribLocation(fboPrograme, "texCoords");
+	checkGLError("glGetAttribLocation");
+	fprintf(stderr, "glGetAttribLocation gvFboTexCoordsHandle = %d\n", gvFboTexCoordsHandle);
+	gvFboSampleHandle = glGetAttribLocation(fboPrograme, "texure");
+	checkGLError("glGetAttribLocation");
+	fprintf(stderr, "glGetAttribLocation gvFboSampleHandle = %d\n", gvFboSampleHandle);
+
+	/*
+	* Create FBO texure to store first shader GPU output
+	*/
+	glActiveTexture(GL_TEXTURE0);
+	glGenTextures(1, &TexNameOutput);
+	glBindTexture(GL_TEXTURE_2D, TexNameOutput);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	/*
+	* Create Framebuffer Object and bind it to a texture
+	*/
+	glGenFramebuffers(1, &gFbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, gFbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, TexNameOutput, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	
 	glViewport(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 	checkGLError("glViewport");
-	
 }
 
 static void redraw()
 {
 	const GLfloat gTriangleVertices[] = {
-		0.0f, 0.5f, 1.0f,
+		0.0f, 0.5f, 0.5f,
 		0.5f, 0.5f, 0.5f,
 		0.5f, 0.0f, 0.5f,
-		0.0f, 0.0f, 1.0f,
+		0.0f, 0.0f, 0.5f,
 	};
 
 	const GLfloat gTexCoords[] = {
-		0.0f, 0.2f,
-		0.0f, 0.7f,
-		0.5f, 0.7f,
-		0.5f, 0.2f,
+		0.0f, 0.0f,
+		1.0f, 0.0f,
+		1.0f, 1.0f,
+		0.0f, 1.0f,
+	};
+
+	const GLfloat gTriangleVerticesFbo[] = {
+		-1.0f, 1.0f, 0.0f,
+		1.0f, 1.0f, 0.0f,
+		1.0f, -1.0f, 0.0f,
+		-1.0f, -1.0f, 0.0f,
+	};
+
+	const GLfloat gTexCoordsFbo[] = {
+		0.0f, 0.0f,
+		1.0f, 0.0f,
+		1.0f, 1.0f,
+		0.0f, 1.0f,
 	};
 
 	GLfloat model[4][4] = {
@@ -361,6 +454,26 @@ static void redraw()
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 	checkGLError("glClear");
 
+	// use gpu copy input texture to output texture
+	glBindFramebuffer(GL_FRAMEBUFFER, gFbo);
+	glUseProgram(fboPrograme);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, TexNameInput);
+
+	glVertexAttribPointer(gvFboPositionHandle, 3, GL_FLOAT, GL_FALSE, 0, gTriangleVerticesFbo);
+	glEnableVertexAttribArray(gvFboPositionHandle);
+	glVertexAttribPointer(gvFboTexCoordsHandle, 2, GL_FLOAT, GL_FALSE, 0, gTexCoordsFbo);
+	glEnableVertexAttribArray(gvFboTexCoordsHandle);
+	glUniform1i(gvFboSampleHandle, 0);
+	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+
+	// use gpu to render output texture to screen
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, TexNameOutput);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glUseProgram(program);
 
 	glVertexAttribPointer(gvPositionHandle, 3, GL_FLOAT, GL_FALSE, 0, gTriangleVertices);
@@ -370,8 +483,6 @@ static void redraw()
 	glEnableVertexAttribArray(gvTexCoordHandle);
 
 	glUniform1i(guTexSamplerHandle, 0);
-
-	glBindTexture(GL_TEXTURE_2D, TexName);
 
 	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
