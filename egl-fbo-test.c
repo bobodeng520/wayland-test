@@ -16,6 +16,7 @@
 #define VIEWPORT_HEIGHT 800
 
 //#define USE_PICTURE 0
+#define USE_RENDERBUFFER 0
 
 struct wl_display *display = NULL;
 struct wl_compositor *compositor = NULL;
@@ -48,6 +49,7 @@ static GLuint TexNameOutput;
 GLuint program;
 GLuint fboPrograme;
 GLuint gFbo;
+GLuint gRenderbuffer;
 
 // output to framebuffer shader, render texure to display
 static const char *vert_shader_text =
@@ -369,6 +371,16 @@ static void init_gl()
 	checkGLError("glGetAttribLocation");
 	fprintf(stderr, "glGetAttribLocation gvFboSampleHandle = %d\n", gvFboSampleHandle);
 
+#if USE_RENDERBUFFER
+	/*
+	* Create Renderbuffer object and bind it to FBO
+	*/
+	glGenRenderbuffers(1, &gRenderbuffer);
+	glBindRenderbuffer(GL_RENDERBUFFER, gRenderbuffer);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA, WIDTH, HEIGHT);
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, gRenderbuffer);
+#else
 	/*
 	* Create FBO texure to store first shader GPU output
 	*/
@@ -388,6 +400,7 @@ static void init_gl()
 	glBindFramebuffer(GL_FRAMEBUFFER, gFbo);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, TexNameOutput, 0);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+#endif
 	
 	glViewport(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 	checkGLError("glViewport");
@@ -455,7 +468,11 @@ static void redraw()
 	checkGLError("glClear");
 
 	// use gpu copy input texture to output texture
+#if USE_RENDERBUFFER
+	glBindRenderbuffer(GL_RENDERBUFFER, gRenderbuffer);
+#else
 	glBindFramebuffer(GL_FRAMEBUFFER, gFbo);
+#endif
 	glUseProgram(fboPrograme);
 
 	glActiveTexture(GL_TEXTURE0);
@@ -473,7 +490,14 @@ static void redraw()
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, TexNameOutput);
 
+	/*
+	* Bind Framebuffer or Renderbuffer to 0, it will render to screen
+	*/
+#if USE_RENDERBUFFER
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+#else
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+#endif
 	glUseProgram(program);
 
 	glVertexAttribPointer(gvPositionHandle, 3, GL_FLOAT, GL_FALSE, 0, gTriangleVertices);
