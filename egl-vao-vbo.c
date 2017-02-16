@@ -231,10 +231,16 @@ static void init_gl()
 
 static void redraw()
 {
-	static const GLfloat verts[3][2] = {
-		{ -0.5, -0.5 },
-		{  0.5, -0.5 },
-		{  0,    0.5 }
+	static const GLfloat verts[] = {
+		  0.0,  0.0,  0.5,
+		  0.0,  0.5,  0.5,
+		  0.25,  1.0,  0.5,
+		  0.5,  0.5,  0.5,
+		  0.5,  0.0,  0.5
+	};
+	static const GLubyte indices[] = {
+		0, 1, 2,
+		4, 2, 3
 	};
 
 	glViewport(0, 0, 400, 400);
@@ -243,10 +249,11 @@ static void redraw()
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	// position
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, verts);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, verts);
 	glEnableVertexAttribArray(0);
 
-	glDrawArrays(GL_TRIANGLES, 0, 3);
+	//glDrawArrays(GL_TRIANGLE_FAN, 0, 5);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
 
 	// disable position
 	glDisableVertexAttribArray(0);
