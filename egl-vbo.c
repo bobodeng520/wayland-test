@@ -242,21 +242,33 @@ static void redraw()
 		0, 1, 2,
 		4, 2, 3
 	};
+	GLuint vboId;
+
 
 	glViewport(0, 0, 400, 400);
 
 	glClearColor(0.0, 0.0, 0.0, 0.5);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	// position
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, verts);
+	/*
+	* Create VBO and bind the verts information to VBO
+	*/
+	glGenBuffers(1, &vboId);
+	glBindBuffer(GL_ARRAY_BUFFER, vboId);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+
+	/*
+	*
+	*/
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 	glEnableVertexAttribArray(0);
 
-	//glDrawArrays(GL_TRIANGLE_FAN, 0, 5);
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, indices);
+	glDrawArrays(GL_TRIANGLE_FAN, 0, 5);
+	//glDrawElements(GL_TRIANGLES, 5, GL_UNSIGNED_BYTE, 0);
 
 	// disable position
 	glDisableVertexAttribArray(0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 	eglSwapBuffers(egl_display, egl_surface);
 }
