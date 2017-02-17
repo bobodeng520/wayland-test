@@ -235,15 +235,15 @@ static void init_gl()
 static void redraw()
 {
 	static const GLfloat verts_colors[] = {
-		0.00f,  0.00f,  0.50f, // vertices position
-		0.00f,  0.50f,  0.50f,
-		0.25f,  1.00f,  0.50f,
-		0.50f,  0.50f,  0.50f,
-		0.50f,  0.00f,  0.50f,
-		1.00f,  0.00f,  0.00f, // vertices color
+		0.00f,  0.00f,  0.50f, // vertices 0
+		1.00f,  0.00f,  0.00f,
+		0.00f,  0.50f,  0.50f, // vertices 1
 		0.00f,  1.00f,  0.00f,
+		0.25f,  1.00f,  0.50f, // vertices 2
 		0.00f,  0.00f,  1.00f,
+		0.50f,  0.50f,  0.50f, // vertices 3
 		1.00f,  0.00f,  1.00f,
+		0.50f,  0.00f,  0.50f, // vertices 4
 		0.00f,  1.00f,  1.00f
 	};
 	static const GLubyte indices[] = {
@@ -275,13 +275,13 @@ static void redraw()
 	/*
 	* parse the verts information
 	*/
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid *)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GL_FLOAT), (GLvoid *)0);
 	glEnableVertexAttribArray(0);
 
 	/*
 	* parse the colors information
 	*/
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid *)(15 * sizeof(GL_FLOAT)));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GL_FLOAT), (GLvoid *)(3 * sizeof(GL_FLOAT)));
 	glEnableVertexAttribArray(1);
 
 	glDrawArrays(GL_TRIANGLE_FAN, 0, 5);
