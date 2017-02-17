@@ -30,13 +30,14 @@ static const char *vert_shader_text =
 	"varying vec4 v_color;\n"
 	"void main() {\n"
 	"	gl_Position = pos;\n"
+	"	v_color = color;\n"
 	"}\n";
 
 static const char *frag_shader_text =
 	"precision mediump float;\n"
 	"varying vec4 v_color;\n"
 	"void main() {\n"
-	"	gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
+	"	gl_FragColor = v_color;\n"
 	"}\n";
 
 static void global_registry_handler(void *data, struct wl_registry *registry, 
@@ -222,7 +223,9 @@ static void init_gl()
 
 	glUseProgram(program);
 
-	// pos
+	/*
+	* add position and color attribute
+	*/
 	glBindAttribLocation(program, 0, "pos");
 	glBindAttribLocation(program, 1, "color");
 
@@ -232,17 +235,24 @@ static void init_gl()
 static void redraw()
 {
 	static const GLfloat verts[] = {
-		  0.0,  0.0,  0.5,
-		  0.0,  0.5,  0.5,
-		  0.25,  1.0,  0.5,
-		  0.5,  0.5,  0.5,
-		  0.5,  0.0,  0.5
+		  0.00f,  0.00f,  0.50f,
+		  0.00f,  0.50f,  0.50f,
+		  0.25f,  1.00f,  0.50f,
+		  0.50f,  0.50f,  0.50f,
+		  0.50f,  0.00f,  0.50f
 	};
 	static const GLubyte indices[] = {
 		0, 1, 2,
 		4, 2, 3
 	};
-	GLuint vboId;
+	static const GLfloat vertsColor[] = {
+		1.00f, 0.00f, 0.00f,
+		0.00f, 1.00f, 0.00f,
+		0.00f, 0.00f, 1.00f,
+		1.00f, 0.00f, 1.00f,
+		0.00f, 1.00f, 1.00f
+	};
+	GLuint vboId0, vboId1;
 
 
 	glViewport(0, 0, 400, 400);
@@ -253,15 +263,22 @@ static void redraw()
 	/*
 	* Create VBO and bind the verts information to VBO
 	*/
-	glGenBuffers(1, &vboId);
-	glBindBuffer(GL_ARRAY_BUFFER, vboId);
+	glGenBuffers(1, &vboId0);
+	glBindBuffer(GL_ARRAY_BUFFER, vboId0);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
 
-	/*
-	*
-	*/
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 	glEnableVertexAttribArray(0);
+
+	/*
+	* Create VBO and bind the color information to VBO
+	*/
+	glGenBuffers(1, &vboId1);
+	glBindBuffer(GL_ARRAY_BUFFER, vboId1);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertsColor), vertsColor, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+	glEnableVertexAttribArray(1);
 
 	glDrawArrays(GL_TRIANGLE_FAN, 0, 5);
 	//glDrawElements(GL_TRIANGLES, 5, GL_UNSIGNED_BYTE, 0);
