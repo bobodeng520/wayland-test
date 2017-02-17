@@ -234,12 +234,17 @@ static void init_gl()
 
 static void redraw()
 {
-	static const GLfloat verts[] = {
-		  0.00f,  0.00f,  0.50f,
-		  0.00f,  0.50f,  0.50f,
-		  0.25f,  1.00f,  0.50f,
-		  0.50f,  0.50f,  0.50f,
-		  0.50f,  0.00f,  0.50f
+	static const GLfloat verts_colors[] = {
+		0.00f,  0.00f,  0.50f, // vertices position
+		0.00f,  0.50f,  0.50f,
+		0.25f,  1.00f,  0.50f,
+		0.50f,  0.50f,  0.50f,
+		0.50f,  0.00f,  0.50f,
+		1.00f,  0.00f,  0.00f, // vertices color
+		0.00f,  1.00f,  0.00f,
+		0.00f,  0.00f,  1.00f,
+		1.00f,  0.00f,  1.00f,
+		0.00f,  1.00f,  1.00f
 	};
 	static const GLubyte indices[] = {
 		0, 1, 2,
@@ -261,23 +266,22 @@ static void redraw()
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	/*
-	* Create VBO and bind the verts information to VBO
+	* Create VBO and bind the verts&colors information to VBO
 	*/
 	glGenBuffers(1, &vboId0);
 	glBindBuffer(GL_ARRAY_BUFFER, vboId0);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(verts_colors), verts_colors, GL_STATIC_DRAW);
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+	/*
+	* parse the verts information
+	*/
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid *)0);
 	glEnableVertexAttribArray(0);
 
 	/*
-	* Create VBO and bind the color information to VBO
+	* parse the colors information
 	*/
-	glGenBuffers(1, &vboId1);
-	glBindBuffer(GL_ARRAY_BUFFER, vboId1);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertsColor), vertsColor, GL_STATIC_DRAW);
-
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid *)(15 * sizeof(GL_FLOAT)));
 	glEnableVertexAttribArray(1);
 
 	glDrawArrays(GL_TRIANGLE_FAN, 0, 5);
